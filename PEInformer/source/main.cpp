@@ -1,0 +1,6 @@
+#include "gui/gui.h"
+
+int WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nShowCmd)
+{
+    GUI::InitGUI();
+}
