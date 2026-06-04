@@ -1,5 +1,6 @@
 #include "gui.h"
 #include "NunitoFont.h"
+#include "../PEParser/PEParser.h"
 
 static ID3D11Device* g_pd3dDevice = nullptr;
 static ID3D11DeviceContext* g_pd3dDeviceContext = nullptr;
@@ -55,7 +56,8 @@ int GUI::InitGUI()
     ImFontConfig IconsConfig;
     static const ImWchar IconRanges[] = { 0xe000, 0xf8ff, 0xf0000, 0xffff0, 0 };
 
-    GUI::NunitoFont = ImGui::GetIO().Fonts->AddFontFromMemoryCompressedTTF(nunito_font_compressed_data, nunito_font_compressed_size, 20.5f, &config, ImGui::GetIO().Fonts->GetGlyphRangesCyrillic());
+    GUI::NunitoFontMedium = ImGui::GetIO().Fonts->AddFontFromMemoryCompressedTTF(nunito_font_compressed_data, nunito_font_compressed_size, 20.5f, &config, ImGui::GetIO().Fonts->GetGlyphRangesCyrillic());
+    GUI::NunitoFontHigh = ImGui::GetIO().Fonts->AddFontFromMemoryCompressedTTF(nunito_font_compressed_data, nunito_font_compressed_size, 22.5f, &config, ImGui::GetIO().Fonts->GetGlyphRangesCyrillic());
     GUI::MaterialSymbolsFont = ImGui::GetIO().Fonts->AddFontFromFileTTF("C:\\CICI\\MaterialSymbolsOutlined[FILL,GRAD,opsz,wght].ttf", 25.5f, &IconsConfig, IconRanges);
 
     bool done = false;
@@ -120,6 +122,8 @@ int GUI::InitGUI()
         ImGui::Dummy(size);
 
         ImGui::PopFont();
+
+        PEParser::MainLogPEParser(hwnd);
 
         ImGui::End();
 
@@ -215,19 +219,26 @@ LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
     switch (msg)
     {
     case WM_SIZE:
+    {
         if (wParam == SIZE_MINIMIZED)
             return 0;
         g_ResizeWidth = (UINT)LOWORD(lParam); // Queue resize
         g_ResizeHeight = (UINT)HIWORD(lParam);
         return 0;
+    }
     case WM_SYSCOMMAND:
+    {
         if ((wParam & 0xfff0) == SC_KEYMENU) // Disable ALT application menu
             return 0;
         break;
+    }
     case WM_DESTROY:
+    {
         ::PostQuitMessage(0);
         return 0;
+    }
     case WM_NCHITTEST:
+    {
         LRESULT hit = DefWindowProc(hWnd, msg, wParam, lParam);
         if (hit == HTCLIENT)
         {
@@ -237,6 +248,25 @@ LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
             if (pt.y < 43 && pt.x < 720) return HTCAPTION;
         }
         return hit;
+    }
+    case WM_DROPFILES:
+    {
+        HDROP hDrop = (HDROP)wParam;
+        char FilePath[MAX_PATH];
+
+        PEParser::Path = "";
+
+        UINT DragQuery = DragQueryFile(hDrop, 0xFFFFFFFF, NULL, NULL);
+        for (UINT i = 0; i < DragQuery; i++)
+        {
+            DragQueryFileA(hDrop, i, FilePath, MAX_PATH);
+        }
+
+        PEParser::Path += FilePath;
+
+        DragFinish(hDrop);
+        return 0;
+    }
     }
     return ::DefWindowProcW(hWnd, msg, wParam, lParam);
 }

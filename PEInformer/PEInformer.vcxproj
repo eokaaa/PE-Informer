@@ -83,7 +83,7 @@
       <LanguageStandard>stdcpp20</LanguageStandard>
     </ClCompile>
     <Link>
-      <SubSystem>Console</SubSystem>
+      <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
     </Link>
     <Manifest>
@@ -101,7 +101,7 @@
       <LanguageStandard>stdcpp20</LanguageStandard>
     </ClCompile>
     <Link>
-      <SubSystem>Console</SubSystem>
+      <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
     </Link>
     <Manifest>
@@ -135,7 +135,7 @@
       <LanguageStandard>stdcpp20</LanguageStandard>
     </ClCompile>
     <Link>
-      <SubSystem>Console</SubSystem>
+      <SubSystem>Windows</SubSystem>
       <GenerateDebugInformation>true</GenerateDebugInformation>
     </Link>
     <Manifest>
@@ -153,6 +153,7 @@
     <ClInclude Include="imgui\imstb_truetype.h" />
     <ClInclude Include="source\gui\gui.h" />
     <ClInclude Include="source\gui\NunitoFont.h" />
+    <ClInclude Include="source\PEParser\PEParser.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="imgui\imgui.cpp" />
@@ -162,6 +163,7 @@
     <ClCompile Include="imgui\imgui_impl_win32.cpp" />
     <ClCompile Include="imgui\imgui_tables.cpp" />
     <ClCompile Include="imgui\imgui_widgets.cpp" />
+    <ClCompile Include="source\PEParser\PEParser.cpp" />
     <ClCompile Include="source\gui\gui.cpp" />
     <ClCompile Include="source\main.cpp" />
   </ItemGroup>

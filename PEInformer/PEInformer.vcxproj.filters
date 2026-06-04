@@ -45,6 +45,9 @@
     <ClInclude Include="source\gui\NunitoFont.h">
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
+    <ClInclude Include="source\PEParser\PEParser.h">
+      <Filter>Файлы заголовков</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="imgui\imgui.cpp">
@@ -72,6 +75,9 @@
       <Filter>Исходные файлы</Filter>
     </ClCompile>
     <ClCompile Include="source\gui\gui.cpp">
+      <Filter>Исходные файлы</Filter>
+    </ClCompile>
+    <ClCompile Include="source\PEParser\PEParser.cpp">
       <Filter>Исходные файлы</Filter>
     </ClCompile>
   </ItemGroup>

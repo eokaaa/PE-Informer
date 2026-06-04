@@ -12,6 +12,7 @@ namespace GUI
 {
 	int InitGUI();
 
-	inline ImFont* NunitoFont;
+	inline ImFont* NunitoFontMedium;
+	inline ImFont* NunitoFontHigh;
 	inline ImFont* MaterialSymbolsFont;
 }
