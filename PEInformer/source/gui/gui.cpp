@@ -9,12 +9,46 @@ static bool                     g_SwapChainOccluded = false;
 static UINT                     g_ResizeWidth = 0, g_ResizeHeight = 0;
 static ID3D11RenderTargetView* g_mainRenderTargetView = nullptr;
 
+int WidthWindow  = 800;
+int HeightWindow = 500;
+
 bool CreateDeviceD3D(HWND hWnd);
 void CleanupDeviceD3D();
 void CreateRenderTarget();
 void CleanupRenderTarget();
-LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 void  ImguiStyle(ImGuiStyle& style);
+LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
+
+void DrawPEParserUI(HWND Handle)
+{
+    ImGui::PushFont(GUI::MaterialSymbolsFont);
+
+    ImGui::SetCursorPos(ImVec2(80, ImGui::GetCursorPosY() + 10));
+    if (ImGui::Button("\ue2c7"))
+        PEParser::Path = PEParser::OpenDialogFile().c_str();
+    DragAcceptFiles(Handle, true);
+    ImGui::PopFont();
+
+    ImGui::SameLine();
+
+    char Buffer[MAX_PATH];
+    strcpy_s(Buffer, PEParser::Path.c_str());
+
+    ImGui::PushFont(GUI::NunitoFontHigh);
+    ImGui::InputTextMultiline("##Path", Buffer, sizeof(Buffer), ImVec2(600, 32));
+    ImGui::PopFont();
+
+    PEParser::OpenFile();
+    if (PEParser::BuildPE.empty())
+        return;
+
+    if (PEParser::BuildPE[0] != 'M' || PEParser::BuildPE[1] != 'Z')
+    {
+        ImGui::SetCursorPosX((WidthWindow - ImGui::CalcTextSize("It isn't a PE file").x) * 0.5f);
+        ImGui::Text("It isn't a PE file");
+    }
+}
+
 
 int GUI::InitGUI()
 {
@@ -23,7 +57,7 @@ int GUI::InitGUI()
 
     WNDCLASSEXW wc = { sizeof(wc), CS_CLASSDC, WndProc, 0L, 0L, GetModuleHandle(nullptr), nullptr, nullptr, nullptr, nullptr, L"PE Informer", nullptr };
     ::RegisterClassExW(&wc);
-    HWND hwnd = ::CreateWindowW(wc.lpszClassName, L"PE Informer", WS_POPUP, 100, 100, 800, 500, nullptr, nullptr, wc.hInstance, nullptr);
+    HWND hwnd = ::CreateWindowW(wc.lpszClassName, L"PE Informer", WS_POPUP, 100, 100, WidthWindow, HeightWindow, nullptr, nullptr, wc.hInstance, nullptr);
 
     if (!CreateDeviceD3D(hwnd))
     {
@@ -95,7 +129,7 @@ int GUI::InitGUI()
         ImGui::NewFrame();
 
         ImGui::SetNextWindowPos(ImVec2(0, 0));
-        ImGui::SetNextWindowSize(ImVec2(800, 500));
+        ImGui::SetNextWindowSize(ImVec2(WidthWindow, HeightWindow));
         ImGui::Begin("##PE Informer", &done, Flags);
 
         ImGui::SetCursorPos(ImVec2(15, 16));
@@ -123,7 +157,7 @@ int GUI::InitGUI()
 
         ImGui::PopFont();
 
-        PEParser::MainLogPEParser(hwnd);
+        DrawPEParserUI(hwnd);
 
         ImGui::End();
 

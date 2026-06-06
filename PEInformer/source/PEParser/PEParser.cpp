@@ -1,6 +1,5 @@
 #include "PEParser.h"
-#include "../gui/gui.h"
-
+#include <fstream>
 
 std::string PEParser::OpenDialogFile()
 {
@@ -16,25 +15,30 @@ std::string PEParser::OpenDialogFile()
 	if (GetOpenFileNameA(&SettingDialog) == true)
 		return SettingDialog.lpstrFile;
 
-	return "Unknown";
+	return "";
 }
 
-void PEParser::MainLogPEParser(HWND Handle)
+void PEParser::OpenFile()
 {
-	ImGui::PushFont(GUI::MaterialSymbolsFont);
-	
-	ImGui::SetCursorPos(ImVec2(80, ImGui::GetCursorPosY() + 10));
-	if (ImGui::Button("\ue2c7"))
-		PEParser::Path = PEParser::OpenDialogFile().c_str();
-	DragAcceptFiles(Handle, true);
-	ImGui::PopFont();
+	static std::string OldFile = "";
+	if ((PEParser::Path == "") || OldFile == PEParser::Path)
+		return;
 
-	ImGui::SameLine();
+	OldFile = PEParser::Path;
 
-	char Buffer[MAX_PATH];
-	strcpy_s(Buffer, PEParser::Path.c_str());
+	std::ifstream isReadFile(PEParser::Path, std::ios::binary);
+	if (isReadFile.is_open())
+	{
+		isReadFile.seekg(0, isReadFile.end);
+		uintptr_t LengthReadFile = isReadFile.tellg();
+		isReadFile.seekg(0, isReadFile.beg);
 
-	ImGui::PushFont(GUI::NunitoFontHigh);
-	ImGui::InputTextMultiline("##Path", Buffer, sizeof(Buffer), ImVec2(600, 32));
-	ImGui::PopFont();
+		PEParser::BuildPE.erase(PEParser::BuildPE.begin(), PEParser::BuildPE.end());
+
+		PEParser::StringPE.resize(LengthReadFile);
+		PEParser::BuildPE.resize(LengthReadFile);
+
+		if (isReadFile.read(PEParser::StringPE.data(), LengthReadFile))
+			PEParser::BuildPE = std::vector<uint8_t>(PEParser::StringPE.begin(), PEParser::StringPE.end());
+	}
 }
