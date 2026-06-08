@@ -18,11 +18,13 @@ std::string PEParser::OpenDialogFile()
 	return "";
 }
 
-void PEParser::OpenFile()
+bool PEParser::OpenFile()
 {
 	static std::string OldFile = "";
-	if ((PEParser::Path == "") || OldFile == PEParser::Path)
-		return;
+	if (PEParser::Path == "")
+		return false;
+	if (OldFile == PEParser::Path)
+		return true;
 
 	OldFile = PEParser::Path;
 
@@ -34,11 +36,9 @@ void PEParser::OpenFile()
 		isReadFile.seekg(0, isReadFile.beg);
 
 		PEParser::BuildPE.erase(PEParser::BuildPE.begin(), PEParser::BuildPE.end());
-
-		PEParser::StringPE.resize(LengthReadFile);
 		PEParser::BuildPE.resize(LengthReadFile);
 
-		if (isReadFile.read(PEParser::StringPE.data(), LengthReadFile))
-			PEParser::BuildPE = std::vector<uint8_t>(PEParser::StringPE.begin(), PEParser::StringPE.end());
+		if (isReadFile.read((char*)(PEParser::BuildPE.data()), LengthReadFile))
+			return true;
 	}
 }

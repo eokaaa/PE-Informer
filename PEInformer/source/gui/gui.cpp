@@ -38,14 +38,88 @@ void DrawPEParserUI(HWND Handle)
     ImGui::InputTextMultiline("##Path", Buffer, sizeof(Buffer), ImVec2(600, 32));
     ImGui::PopFont();
 
-    PEParser::OpenFile();
-    if (PEParser::BuildPE.empty())
+    if (!PEParser::OpenFile())
         return;
 
-    if (PEParser::BuildPE[0] != 'M' || PEParser::BuildPE[1] != 'Z')
+    IMAGE_DOS_HEADER* ImageDos = reinterpret_cast<IMAGE_DOS_HEADER*>(PEParser::BuildPE.data());
+    if (!ImageDos)
+        return;
+    else if (ImageDos->e_magic != IMAGE_DOS_SIGNATURE)
     {
-        ImGui::SetCursorPosX((WidthWindow - ImGui::CalcTextSize("It isn't a PE file").x) * 0.5f);
+        ImGui::SetCursorPos(ImVec2(100, ImGui::GetCursorPosY() + 25));
         ImGui::Text("It isn't a PE file");
+        return;
+    }
+    else if (PEParser::BuildPE.size() < sizeof(IMAGE_DOS_HEADER))
+    {
+        ImGui::SetCursorPos(ImVec2(100, ImGui::GetCursorPosY() + 25));
+        ImGui::Text("The file is corrupted");
+        return;
+    }
+
+    IMAGE_NT_HEADERS* NTHeader = reinterpret_cast<IMAGE_NT_HEADERS*>(PEParser::BuildPE.data() + ImageDos->e_lfanew);
+    if (!NTHeader)
+        return;
+    else if (NTHeader->Signature != IMAGE_NT_SIGNATURE)
+    {
+        ImGui::SetCursorPos(ImVec2(100, ImGui::GetCursorPosY() + 25));
+        ImGui::Text("It isn't a PE file");
+        return;
+    }
+
+    bool Is64 = (NTHeader->OptionalHeader.Magic == IMAGE_NT_OPTIONAL_HDR64_MAGIC);
+
+    ImGui::SetCursorPos(ImVec2(100, ImGui::GetCursorPosY() + 25));
+    ImGui::Text("Architecture: %s", Is64 ? "x64, AMD64" : "x32, I386");
+    ImGui::SetCursorPosX(100); ImGui::Text("Number of sections: %d", NTHeader->FileHeader.NumberOfSections);
+
+
+    std::string TypeFile;
+    if (NTHeader->FileHeader.Characteristics & IMAGE_FILE_DLL)
+        TypeFile = "DLL";
+    else
+    {
+        switch (NTHeader->OptionalHeader.Subsystem)
+        {
+        case IMAGE_SUBSYSTEM_NATIVE:
+        {
+            TypeFile = "SYS";
+            break;
+        }
+        case IMAGE_SUBSYSTEM_WINDOWS_GUI:
+        {
+            TypeFile = "GUI";
+            break;
+        }
+        case IMAGE_SUBSYSTEM_WINDOWS_CUI:
+        {
+            TypeFile = "CONSOLE";
+            break;
+        }
+        }
+    }
+
+    ImGui::SetCursorPosX(100); ImGui::Text("Type file: %s", TypeFile.c_str());
+
+    if (Is64)
+    {
+        IMAGE_NT_HEADERS64* NT64 = reinterpret_cast<IMAGE_NT_HEADERS64*>(PEParser::BuildPE.data() + ImageDos->e_lfanew);
+
+
+        ImGui::SetCursorPosX(100); ImGui::Text("Address Of Entry Point: 0x%08X", NT64->OptionalHeader.AddressOfEntryPoint);
+        ImGui::SetCursorPosX(100); ImGui::Text("Base Of Code: 0x%08X", NT64->OptionalHeader.BaseOfCode);
+        ImGui::SetCursorPosX(100); ImGui::Text("Image Base: 0x%0llX", NT64->OptionalHeader.ImageBase);
+        ImGui::SetCursorPosX(100); ImGui::Text("Section Alignment: 0x%08X", NT64->OptionalHeader.SectionAlignment);
+    }
+    else
+    {
+        IMAGE_NT_HEADERS32* NT32 = reinterpret_cast<IMAGE_NT_HEADERS32*>(PEParser::BuildPE.data() + ImageDos->e_lfanew);
+
+
+        ImGui::SetCursorPosX(100); ImGui::Text("Address Of Entry Point: 0x%08X", NT32->OptionalHeader.AddressOfEntryPoint);
+        ImGui::SetCursorPosX(100); ImGui::Text("Base Of Code: 0x%08X", NT32->OptionalHeader.BaseOfCode);
+        ImGui::SetCursorPosX(100); ImGui::Text("Image Base: 0x%0llX", NT32->OptionalHeader.ImageBase);
+        ImGui::SetCursorPosX(100); ImGui::Text("Section Alignment: 0x%08X", NT32->OptionalHeader.SectionAlignment);
     }
 }
 
