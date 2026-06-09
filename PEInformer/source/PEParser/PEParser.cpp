@@ -42,3 +42,49 @@ bool PEParser::OpenFile()
 			return true;
 	}
 }
+
+
+std::vector<PEParser::RichHeader> PEParser::ReadRichHeader(uint32_t* EndMSD)
+{
+	static std::vector<PEParser::RichHeader> OldRichHeader;
+	static std::string OldFile = "";
+	if (PEParser::Path == "")
+		return OldRichHeader;
+	if (OldFile == PEParser::Path)
+		return OldRichHeader;
+
+	OldFile = PEParser::Path;
+	OldRichHeader.clear();
+
+	uint32_t* StartFile = reinterpret_cast<uint32_t*>(PEParser::BuildPE.data());
+
+	while (*EndMSD != 0x68636952 && EndMSD > StartFile)
+		EndMSD -= 1;
+
+	uint32_t* XORKey = EndMSD + 1;
+
+	uint32_t* FindDans = EndMSD;
+	uint32_t DansHex = *EndMSD - 1;
+
+	while (DansHex != 0x536e6144 && FindDans > StartFile)
+	{
+		DansHex = (*FindDans) ^ *XORKey;
+		--FindDans;
+	}
+
+	FindDans += 5;
+	while (*FindDans != 0x68636952 && FindDans < EndMSD - 1)
+	{
+		uint32_t Value1 = *(FindDans) ^ *XORKey;
+		uint32_t Value2 = *(FindDans + 1) ^ *XORKey;
+
+		OldRichHeader.push_back(PEParser::RichHeader{ Value1 >> 16, Value1 & 0xFFFF, Value2 });
+
+		FindDans += 2;
+	}
+
+	if (EndMSD > StartFile)
+		return OldRichHeader;
+	
+	return {};
+}

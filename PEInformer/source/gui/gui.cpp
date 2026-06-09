@@ -108,7 +108,7 @@ void DrawPEParserUI(HWND Handle)
 
         ImGui::SetCursorPosX(100); ImGui::Text("Address Of Entry Point: 0x%08X", NT64->OptionalHeader.AddressOfEntryPoint);
         ImGui::SetCursorPosX(100); ImGui::Text("Base Of Code: 0x%08X", NT64->OptionalHeader.BaseOfCode);
-        ImGui::SetCursorPosX(100); ImGui::Text("Image Base: 0x%0llX", NT64->OptionalHeader.ImageBase);
+        ImGui::SetCursorPosX(100); ImGui::Text("Image Base: 0x%016llX", NT64->OptionalHeader.ImageBase);
         ImGui::SetCursorPosX(100); ImGui::Text("Section Alignment: 0x%08X", NT64->OptionalHeader.SectionAlignment);
     }
     else
@@ -118,9 +118,14 @@ void DrawPEParserUI(HWND Handle)
 
         ImGui::SetCursorPosX(100); ImGui::Text("Address Of Entry Point: 0x%08X", NT32->OptionalHeader.AddressOfEntryPoint);
         ImGui::SetCursorPosX(100); ImGui::Text("Base Of Code: 0x%08X", NT32->OptionalHeader.BaseOfCode);
-        ImGui::SetCursorPosX(100); ImGui::Text("Image Base: 0x%0llX", NT32->OptionalHeader.ImageBase);
+        ImGui::SetCursorPosX(100); ImGui::Text("Image Base: 0x%016llX", NT32->OptionalHeader.ImageBase);
         ImGui::SetCursorPosX(100); ImGui::Text("Section Alignment: 0x%08X", NT32->OptionalHeader.SectionAlignment);
     }
+
+    uint32_t* EndMSDPtr = (uint32_t*)((uint8_t*)PEParser::BuildPE.data() + ImageDos->e_lfanew);
+    PEParser::RichHeaderArr = PEParser::ReadRichHeader(EndMSDPtr);
+
+
 }
 
 
