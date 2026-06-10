@@ -1,6 +1,10 @@
 #include "gui.h"
 #include "NunitoFont.h"
 #include "../PEParser/PEParser.h"
+#include "../../resource.h"
+
+#include <dwmapi.h>
+#pragma comment(lib, "dwmapi.lib")
 
 static ID3D11Device* g_pd3dDevice = nullptr;
 static ID3D11DeviceContext* g_pd3dDeviceContext = nullptr;
@@ -34,6 +38,8 @@ void DrawPEParserUI(HWND Handle)
     char Buffer[MAX_PATH];
     strcpy_s(Buffer, PEParser::Path.c_str());
 
+
+    ImGui::SetCursorPos(ImVec2(ImGui::GetCursorPosX(), ImGui::GetCursorPosY() + 10));
     ImGui::PushFont(GUI::NunitoFontHigh);
     ImGui::InputTextMultiline("##Path", Buffer, sizeof(Buffer), ImVec2(600, 32));
     ImGui::PopFont();
@@ -125,7 +131,49 @@ void DrawPEParserUI(HWND Handle)
     uint32_t* EndMSDPtr = (uint32_t*)((uint8_t*)PEParser::BuildPE.data() + ImageDos->e_lfanew);
     PEParser::RichHeaderArr = PEParser::ReadRichHeader(EndMSDPtr);
 
+    if (PEParser::RichHeaderArr.size() > 1)
+    {
+        std::string VersionLinker = PEParser::GetLinkerString();
+        ImGui::SetCursorPosX(100); ImGui::Text("Linker: %s", VersionLinker.c_str());
+    }
 
+    PEParser::SectionsInFile.clear();
+    std::string DetectPacker = PEParser::ParserSections(NTHeader);
+    if (DetectPacker != " ")
+    {
+        ImGui::SetCursorPosX(100); ImGui::Text("Packer: %s", DetectPacker.c_str());
+    }
+    
+    static bool HasText = false;
+    for (auto& Section : PEParser::SectionsInFile)
+    {
+        if (Section.Name.find("text") != std::string::npos)
+        {
+            HasText = true;
+            break;
+        }
+    }
+
+    if (!HasText)
+    {
+        ImGui::SetCursorPosX(100); ImGui::Text("Packer: [Unknown packer] Doesn't have .text section");
+    }
+
+    ImGui::SetCursorPosX(100);
+    if (ImGui::BeginTable("##Sections", 2, ImGuiTableFlags_Resizable | ImGuiTableFlags_NoSavedSettings | ImGuiTableFlags_Borders, ImVec2(400, 1.f)))
+    {
+        ImGui::TableSetupColumn("Section");
+        ImGui::TableSetupColumn("VirtualAddress");
+        ImGui::TableHeadersRow();
+
+        for (auto& Section : PEParser::SectionsInFile)
+        {
+            ImGui::TableNextRow();
+            ImGui::TableNextColumn(); ImGui::Text("%s", Section.Name.c_str());
+            ImGui::TableNextColumn(); ImGui::Text("0x%08X", Section.VirtualAddress);
+        }
+    }
+    ImGui::EndTable();
 }
 
 
@@ -135,8 +183,18 @@ int GUI::InitGUI()
     float main_scale = ImGui_ImplWin32_GetDpiScaleForMonitor(::MonitorFromPoint(POINT{ 0, 0 }, MONITOR_DEFAULTTOPRIMARY));
 
     WNDCLASSEXW wc = { sizeof(wc), CS_CLASSDC, WndProc, 0L, 0L, GetModuleHandle(nullptr), nullptr, nullptr, nullptr, nullptr, L"PE Informer", nullptr };
+
+    wc.hIcon = LoadIcon(wc.hInstance, MAKEINTRESOURCE(IDI_ICON1));
+    wc.hIconSm = LoadIcon(wc.hInstance, MAKEINTRESOURCE(IDI_ICON1));
+
     ::RegisterClassExW(&wc);
-    HWND hwnd = ::CreateWindowW(wc.lpszClassName, L"PE Informer", WS_POPUP, 100, 100, WidthWindow, HeightWindow, nullptr, nullptr, wc.hInstance, nullptr);
+    HWND hwnd = ::CreateWindowW(wc.lpszClassName, L"PE Informer", WS_OVERLAPPEDWINDOW ^ WS_MAXIMIZEBOX, 100, 100, WidthWindow, HeightWindow, nullptr, nullptr, wc.hInstance, nullptr);
+
+    BOOL USE_DARK_MODE = TRUE;
+    COLORREF BackgroundColor = RGB(40, 44, 52);
+    COLORREF TextColor = RGB(171, 178, 191);
+    DwmSetWindowAttribute(hwnd, DWMWA_CAPTION_COLOR, &BackgroundColor, sizeof(BackgroundColor));
+    DwmSetWindowAttribute(hwnd, DWMWA_TEXT_COLOR, &TextColor, sizeof(TextColor));
 
     if (!CreateDeviceD3D(hwnd))
     {
@@ -207,34 +265,17 @@ int GUI::InitGUI()
         ImGui_ImplWin32_NewFrame();
         ImGui::NewFrame();
 
-        ImGui::SetNextWindowPos(ImVec2(0, 0));
-        ImGui::SetNextWindowSize(ImVec2(WidthWindow, HeightWindow));
-        ImGui::Begin("##PE Informer", &done, Flags);
+        const ImGuiViewport* viewport = ImGui::GetMainViewport();
 
-        ImGui::SetCursorPos(ImVec2(15, 16));
-        ImGui::Text("PE Informer 1.0v");
+        ImGui::SetNextWindowPos(viewport->WorkPos);
+        ImGui::SetNextWindowSize(viewport->WorkSize);
+
+        ImGui::SetNextWindowPos(ImVec2(0, 0));
+        //ImGui::SetNextWindowSize(ImVec2(WidthWindow, HeightWindow));
+        ImGui::Begin("##PE Informer", &done, Flags);
 
         ImGui::SameLine(ImGui::GetWindowWidth() - 80);
 
-        ImGui::SetCursorPosY(12);
-        ImGui::PushFont(GUI::MaterialSymbolsFont);
-        if (ImGui::Button("\ue15b", ImVec2(30, 30)))
-            ShowWindow(hwnd, SW_MINIMIZE);
-
-        ImGui::SameLine(ImGui::GetWindowWidth() - 40);
-        ImGui::SetCursorPosY(12);
-        if (ImGui::Button("\ue5cd", ImVec2(30, 30)))
-            done = true;
-
-        float thickness = 3.0f;
-        ImVec2 size = ImVec2(ImGui::GetContentRegionAvail().x, thickness);
-        ImVec4 color = ImGui::GetStyle().Colors[ImGuiCol_Separator];
-        ImGui::GetWindowDrawList()->AddRectFilled(ImGui::GetCursorScreenPos(),
-            ImVec2(ImGui::GetCursorScreenPos().x + size.x, ImGui::GetCursorScreenPos().y + size.y + 3),
-            ImGui::ColorConvertFloat4ToU32(color));
-        ImGui::Dummy(size);
-
-        ImGui::PopFont();
 
         DrawPEParserUI(hwnd);
 
@@ -349,18 +390,6 @@ LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
     {
         ::PostQuitMessage(0);
         return 0;
-    }
-    case WM_NCHITTEST:
-    {
-        LRESULT hit = DefWindowProc(hWnd, msg, wParam, lParam);
-        if (hit == HTCLIENT)
-        {
-            POINT pt;
-            GetCursorPos(&pt);
-            ScreenToClient(hWnd, &pt);
-            if (pt.y < 43 && pt.x < 720) return HTCAPTION;
-        }
-        return hit;
     }
     case WM_DROPFILES:
     {

@@ -1,5 +1,7 @@
-#include "PEParser.h"
 #include <fstream>
+
+#include "PEParser.h"
+#include "CompId.h"
 
 std::string PEParser::OpenDialogFile()
 {
@@ -78,7 +80,12 @@ std::vector<PEParser::RichHeader> PEParser::ReadRichHeader(uint32_t* EndMSD)
 		uint32_t Value1 = *(FindDans) ^ *XORKey;
 		uint32_t Value2 = *(FindDans + 1) ^ *XORKey;
 
-		OldRichHeader.push_back(PEParser::RichHeader{ Value1 >> 16, Value1 & 0xFFFF, Value2 });
+		PEParser::RichHeader RichInfo{ Value1 >> 16, Value1 & 0xFFFF, Value2, ""};
+
+		if (ProduceInfo.find(Value1) != ProduceInfo.end())
+			RichInfo.Name = ProduceInfo[Value1];
+
+		OldRichHeader.push_back(RichInfo);
 
 		FindDans += 2;
 	}
@@ -87,4 +94,47 @@ std::vector<PEParser::RichHeader> PEParser::ReadRichHeader(uint32_t* EndMSD)
 		return OldRichHeader;
 	
 	return {};
+}
+
+std::string PEParser::GetLinkerString()
+{
+	int MaxBuild = 0;
+	std::string NameComp = "";
+	for (auto& Header : PEParser::RichHeaderArr)
+	{
+		if (MaxBuild < Header.Build)
+		{
+			MaxBuild = Header.Build;
+			NameComp = Header.Name;
+		}
+	}
+
+	return NameComp;
+}
+
+std::string PEParser::ParserSections(IMAGE_NT_HEADERS* NTHeader)
+{
+	IMAGE_SECTION_HEADER* Section = IMAGE_FIRST_SECTION(NTHeader);
+
+	for (int i = 0; i < NTHeader->FileHeader.NumberOfSections; ++i)
+	{
+		char RawSectionName[9] = {0};
+		memcpy(RawSectionName, Section->Name, 8);
+		std::string SectionName(RawSectionName);
+
+		PEParser::SectionsInFile.push_back(PEParser::Sections{ SectionName, Section->VirtualAddress });
+
+		if (SectionName.find("UPX") != std::string::npos) return "UPX";
+		else if (SectionName.find("vmp") != std::string::npos) return "VMProtect";
+		else if (SectionName.find("themida") != std::string::npos) return "Themida";
+		else if (SectionName.find("winlic") != std::string::npos) return "WinLicense";
+		else if (SectionName.find("aspack") != std::string::npos || 
+				 SectionName.find("adata") != std::string::npos) return "ASPack";
+		else if (SectionName.find("MPRESS") != std::string::npos) return "MPRESS";
+		else if (SectionName.find("enigma") != std::string::npos) return "Enigma Protector";
+
+		++Section;
+	}
+
+	return " ";
 }
