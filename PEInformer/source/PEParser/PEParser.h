@@ -20,6 +20,7 @@ namespace PEParser
 	{
 		std::string Name;
 		uint32_t VirtualAddress;
+		double Entropy;
 	};
 
 	inline std::string Path;
@@ -31,5 +32,7 @@ namespace PEParser
 	bool OpenFile();
 	std::vector<PEParser::RichHeader> ReadRichHeader(uint32_t* EndMSD);
 	std::string GetLinkerString();
+	std::string GetLinkerStringWithoutRich(uint8_t MajorLinkerVersion, uint8_t MinorLinkerVersion);
 	std::string ParserSections(IMAGE_NT_HEADERS* NTHeader);
+	double Entropy(uint32_t Offset, uint32_t Size);
 }

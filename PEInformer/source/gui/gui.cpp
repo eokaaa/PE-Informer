@@ -41,7 +41,7 @@ void DrawPEParserUI(HWND Handle)
 
     ImGui::SetCursorPos(ImVec2(ImGui::GetCursorPosX(), ImGui::GetCursorPosY() + 10));
     ImGui::PushFont(GUI::NunitoFontHigh);
-    ImGui::InputTextMultiline("##Path", Buffer, sizeof(Buffer), ImVec2(600, 32));
+    ImGui::InputTextMultiline("##Path", Buffer, sizeof(Buffer), ImVec2(ImGui::GetWindowWidth() - 150, 32));
     ImGui::PopFont();
 
     if (!PEParser::OpenFile())
@@ -107,6 +107,10 @@ void DrawPEParserUI(HWND Handle)
 
     ImGui::SetCursorPosX(100); ImGui::Text("Type file: %s", TypeFile.c_str());
 
+    uint8_t MajorLinkerVersion = 0;
+    uint8_t MinorLinkerVersion = 0;
+    uint32_t AddressOfEntryPoint = 0;
+
     if (Is64)
     {
         IMAGE_NT_HEADERS64* NT64 = reinterpret_cast<IMAGE_NT_HEADERS64*>(PEParser::BuildPE.data() + ImageDos->e_lfanew);
@@ -116,6 +120,10 @@ void DrawPEParserUI(HWND Handle)
         ImGui::SetCursorPosX(100); ImGui::Text("Base Of Code: 0x%08X", NT64->OptionalHeader.BaseOfCode);
         ImGui::SetCursorPosX(100); ImGui::Text("Image Base: 0x%016llX", NT64->OptionalHeader.ImageBase);
         ImGui::SetCursorPosX(100); ImGui::Text("Section Alignment: 0x%08X", NT64->OptionalHeader.SectionAlignment);
+
+        MajorLinkerVersion = NT64->OptionalHeader.MajorLinkerVersion;
+        MinorLinkerVersion = NT64->OptionalHeader.MinorLinkerVersion;
+        AddressOfEntryPoint = NT64->OptionalHeader.AddressOfEntryPoint;
     }
     else
     {
@@ -126,24 +134,30 @@ void DrawPEParserUI(HWND Handle)
         ImGui::SetCursorPosX(100); ImGui::Text("Base Of Code: 0x%08X", NT32->OptionalHeader.BaseOfCode);
         ImGui::SetCursorPosX(100); ImGui::Text("Image Base: 0x%016llX", NT32->OptionalHeader.ImageBase);
         ImGui::SetCursorPosX(100); ImGui::Text("Section Alignment: 0x%08X", NT32->OptionalHeader.SectionAlignment);
+        
+        MajorLinkerVersion = NT32->OptionalHeader.MajorLinkerVersion;
+        MinorLinkerVersion = NT32->OptionalHeader.MinorLinkerVersion;
+        AddressOfEntryPoint = NT32->OptionalHeader.AddressOfEntryPoint;
     }
 
     uint32_t* EndMSDPtr = (uint32_t*)((uint8_t*)PEParser::BuildPE.data() + ImageDos->e_lfanew);
     PEParser::RichHeaderArr = PEParser::ReadRichHeader(EndMSDPtr);
 
-    if (PEParser::RichHeaderArr.size() > 1)
-    {
-        std::string VersionLinker = PEParser::GetLinkerString();
-        ImGui::SetCursorPosX(100); ImGui::Text("Linker: %s", VersionLinker.c_str());
-    }
+    std::string VersionLinker = PEParser::GetLinkerString();
+    if (VersionLinker == "")
+        VersionLinker = PEParser::GetLinkerStringWithoutRich(MajorLinkerVersion, MinorLinkerVersion);
 
-    PEParser::SectionsInFile.clear();
-    std::string DetectPacker = PEParser::ParserSections(NTHeader);
+
+    ImGui::SetCursorPosX(100); ImGui::Text("Linker: %s", VersionLinker.c_str());
+    ImGui::SetCursorPosX(100); ImGui::Text("Entropy: %.5f", PEParser::Entropy(0, PEParser::BuildPE.size()));
+
+
+    static std::string DetectPacker = PEParser::ParserSections(NTHeader);
     if (DetectPacker != " ")
     {
         ImGui::SetCursorPosX(100); ImGui::Text("Packer: %s", DetectPacker.c_str());
     }
-    
+
     static bool HasText = false;
     for (auto& Section : PEParser::SectionsInFile)
     {
@@ -159,11 +173,24 @@ void DrawPEParserUI(HWND Handle)
         ImGui::SetCursorPosX(100); ImGui::Text("Packer: [Unknown packer] Doesn't have .text section");
     }
 
+    for (auto& Section : PEParser::SectionsInFile)
+    {
+        if (Section.Name.find("rsrc") != std::string::npos)
+            continue;
+
+        if (Section.Entropy > 7.4)
+        {
+            ImGui::SetCursorPosX(100); ImGui::Text("Packer: [Unknown packer] High entropy [%s]", Section.Name.c_str());
+        }
+    }
+
+
     ImGui::SetCursorPosX(100);
-    if (ImGui::BeginTable("##Sections", 2, ImGuiTableFlags_Resizable | ImGuiTableFlags_NoSavedSettings | ImGuiTableFlags_Borders, ImVec2(400, 1.f)))
+    if (ImGui::BeginTable("##Sections", 3, ImGuiTableFlags_Resizable | ImGuiTableFlags_NoSavedSettings | ImGuiTableFlags_Borders, ImVec2(400, 1.f)))
     {
         ImGui::TableSetupColumn("Section");
         ImGui::TableSetupColumn("VirtualAddress");
+        ImGui::TableSetupColumn("Entropy");
         ImGui::TableHeadersRow();
 
         for (auto& Section : PEParser::SectionsInFile)
@@ -171,6 +198,7 @@ void DrawPEParserUI(HWND Handle)
             ImGui::TableNextRow();
             ImGui::TableNextColumn(); ImGui::Text("%s", Section.Name.c_str());
             ImGui::TableNextColumn(); ImGui::Text("0x%08X", Section.VirtualAddress);
+            ImGui::TableNextColumn(); ImGui::Text("%.5f", Section.Entropy);
         }
     }
     ImGui::EndTable();

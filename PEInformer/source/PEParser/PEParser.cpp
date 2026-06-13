@@ -1,4 +1,5 @@
 #include <fstream>
+#include <unordered_map>
 
 #include "PEParser.h"
 #include "CompId.h"
@@ -112,8 +113,67 @@ std::string PEParser::GetLinkerString()
 	return NameComp;
 }
 
+std::string PEParser::GetLinkerStringWithoutRich(uint8_t MajorLinkerVersion, uint8_t MinorLinkerVersion)
+{
+	if (MajorLinkerVersion == 2 && MinorLinkerVersion == 25) return "Borland Delphi / C++ Builder (2.25)";
+	if (MajorLinkerVersion == 2 && MinorLinkerVersion > 25) return "MinGW / GCC (GNU ld " + std::to_string(MajorLinkerVersion) + "." + std::to_string(MinorLinkerVersion) + ")";
+	if (MajorLinkerVersion == 3) return "Go compiler";
+	if (MajorLinkerVersion == 6 && MinorLinkerVersion == 0) return "Visual Studio 6.0";
+	if (MajorLinkerVersion >= 8) return "Microsoft Visual Studio (" + std::to_string(MajorLinkerVersion) + ")";
+
+	return "Unknown Linker (" + std::to_string(MajorLinkerVersion) + "." + std::to_string(MinorLinkerVersion) + ")";
+}
+
+double PEParser::Entropy(uint32_t Offset, uint32_t Size)
+{
+	static std::string OldFile = "";
+	static std::unordered_map<uint32_t, double> EntropyCache;
+
+	if (OldFile != PEParser::Path)
+	{
+		EntropyCache.clear();
+		OldFile = PEParser::Path;
+	}
+
+	if (EntropyCache.find(Offset) != EntropyCache.end())
+		return EntropyCache[Offset];
+
+	if (Offset + Size > PEParser::BuildPE.size())
+		Size = PEParser::BuildPE.size() - Offset;
+
+	std::vector<uint32_t> ByteCounter(256);
+	for (int i = 0; i < Size; ++i)
+	{
+		uint8_t Byte = PEParser::BuildPE[i + Offset];
+		++ByteCounter[Byte];
+	}
+
+	double dEntropy = 0;
+	double dSize = static_cast<double>(Size);
+	for (uint32_t Count : ByteCounter)
+	{
+		if (Count > 0)
+		{
+			double P = Count / dSize;
+			dEntropy -= P * std::log2(P);
+		}
+	}
+	EntropyCache[Offset] = dEntropy;
+
+	return dEntropy;
+}
+
 std::string PEParser::ParserSections(IMAGE_NT_HEADERS* NTHeader)
 {
+	static std::string OldFile = "";
+	if (PEParser::Path == "")
+		return "";
+	if (OldFile == PEParser::Path)
+		return "";
+
+	OldFile = PEParser::Path;
+	PEParser::SectionsInFile.clear();
+
 	IMAGE_SECTION_HEADER* Section = IMAGE_FIRST_SECTION(NTHeader);
 
 	for (int i = 0; i < NTHeader->FileHeader.NumberOfSections; ++i)
@@ -122,7 +182,8 @@ std::string PEParser::ParserSections(IMAGE_NT_HEADERS* NTHeader)
 		memcpy(RawSectionName, Section->Name, 8);
 		std::string SectionName(RawSectionName);
 
-		PEParser::SectionsInFile.push_back(PEParser::Sections{ SectionName, Section->VirtualAddress });
+		double dEntropy = PEParser::Entropy(Section->PointerToRawData, Section->SizeOfRawData);
+		PEParser::SectionsInFile.push_back(PEParser::Sections{ SectionName, Section->VirtualAddress, dEntropy });
 
 		if (SectionName.find("UPX") != std::string::npos) return "UPX";
 		else if (SectionName.find("vmp") != std::string::npos) return "VMProtect";
